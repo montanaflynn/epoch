@@ -6,6 +6,7 @@ class Epoch.Time.Heatmap extends Epoch.Time.Plot
     bucketRange: [0, 100]
     opacity: 'linear'
     bucketPadding: 2
+    paintMissing: false
 
   # Easy to use "named" color functions
   colorFunctions =
@@ -121,6 +122,9 @@ class Epoch.Time.Heatmap extends Epoch.Time.Plot
     while (--entryIndex >= 0) and (--drawColumn >= 0)
       @_paintEntry(entryIndex, drawColumn)
 
+  _computeColor: (sum, max, referenceColor) ->
+    Epoch.toRGBA(referenceColor, @_colorFn(sum, max))
+
   # Paints a single entry column on the paint canvas at the given column.
   # @param [Integer] entryIndex Index of the entry to paint.
   # @param [Integer] drawColumn Column on the paint canvas to place the visualized entry.
@@ -154,8 +158,8 @@ class Epoch.Time.Heatmap extends Epoch.Time.Plot
       max = 0
       for entry in entries
         max += (entry.buckets[bucket] / sum) * maxTotal
-      if sum > 0
-        @p.fillStyle = Epoch.toRGBA(color, @_colorFn(sum, max))
+      if sum > 0 or @options.paintMissing
+        @p.fillStyle = @_computeColor(sum, max, color)
         @p.fillRect xPos, (j-1) * h, w-@options.bucketPadding, h-@options.bucketPadding
       j--
 
@@ -193,5 +197,25 @@ class Epoch.Time.Heatmap extends Epoch.Time.Plot
     return unless @isVisible()
     @clear()
     @ctx.drawImage @paint, delta, 0
+
+
+
+
+class Epoch.Time.ColorHeatmap extends Epoch.Time.Heatmap
+  defaults =
+    paintMissing: true
+
+  constructor: (@options) ->
+    @cool = d3.rgb('#550000').hsl()
+    @hot = d3.rgb('yellow').hsl()
+    super(@options = Epoch.Util.defaults(@options, defaults))
+
+  _computeColor: (sum, max, referenceColor) ->
+    ratio = Math.pow(sum / max, 0.5)
+    ch = @cool.h + ratio * (@hot.h - @cool.h)
+    cs = @cool.s + ratio * (@hot.s - @cool.s)
+    cl = @cool.l + ratio * (@hot.l - @cool.l)
+    d3.hsl(ch, cs, cl).rgb().toString();
+
 
 # "Audio... Audio... Audio... Video Disco..." - Justice
